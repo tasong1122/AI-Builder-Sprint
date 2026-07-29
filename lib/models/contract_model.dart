@@ -14,7 +14,7 @@ extension ContractStatusValue on ContractStatus {
   String get displayName {
     return switch (this) {
       ContractStatus.editing => '편집중',
-      ContractStatus.waitingAgreement => '동의 대기중',
+      ContractStatus.waitingAgreement => '확인 대기중',
       ContractStatus.active => '진행중',
     };
   }
@@ -61,7 +61,7 @@ class ContractModel {
   ) {
     final data = document.data();
     if (data == null) {
-      throw const FormatException('계약 문서가 존재하지 않습니다.');
+      throw const FormatException('돈 약속을 찾을 수 없습니다.');
     }
 
     return ContractModel(
@@ -108,22 +108,22 @@ class ContractModel {
   // 계약 금액과 당사자 정보가 데이터 규칙에 맞는지 확인한다.
   void validate() {
     if (principalAmount <= 0) {
-      throw const FormatException('원금은 0원보다 커야 합니다.');
+      throw const FormatException('빌릴 금액은 0원보다 커야 합니다.');
     }
     if (interestRate < 0 || interestAmount < 0) {
       throw const FormatException('이자율과 이자 금액은 음수일 수 없습니다.');
     }
     if (totalRepaymentAmount != principalAmount + interestAmount) {
-      throw const FormatException('최종 상환 금액이 올바르지 않습니다.');
+      throw const FormatException('총 갚을 금액이 올바르지 않습니다.');
     }
     if (lenderName.trim().isEmpty || borrowerName.trim().isEmpty) {
-      throw const FormatException('계약 당사자 이름이 필요합니다.');
+      throw const FormatException('돈 약속에 참여하는 사람의 이름이 필요합니다.');
     }
     if (creatorUid.trim().isEmpty) {
-      throw const FormatException('계약 작성자 정보가 필요합니다.');
+      throw const FormatException('돈 약속을 만든 사람의 정보가 필요합니다.');
     }
     if (lenderUid != null && lenderUid == borrowerUid) {
-      throw const FormatException('같은 사용자끼리 계약할 수 없습니다.');
+      throw const FormatException('같은 사용자끼리는 돈 약속을 만들 수 없습니다.');
     }
   }
 
@@ -133,6 +133,9 @@ class ContractModel {
       return borrowerName;
     }
     if (currentUserUid == borrowerUid) {
+      if (lenderUid == null && status == ContractStatus.waitingAgreement) {
+        return '대기중';
+      }
       return lenderName;
     }
     return '알 수 없는 사용자';
@@ -188,7 +191,7 @@ class ContractModel {
       'editing' => ContractStatus.editing,
       'waiting_agreement' => ContractStatus.waitingAgreement,
       'active' => ContractStatus.active,
-      _ => throw const FormatException('계약 상태가 올바르지 않습니다.'),
+      _ => throw const FormatException('돈 약속 상태가 올바르지 않습니다.'),
     };
   }
 

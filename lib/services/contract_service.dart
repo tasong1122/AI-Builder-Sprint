@@ -89,11 +89,11 @@ class ContractService {
   Future<String> createContract(ContractModel contract) async {
     final currentUserUid = _requireCurrentUserUid();
     if (contract.creatorUid != currentUserUid) {
-      throw StateError('현재 사용자만 계약 작성자가 될 수 있습니다.');
+      throw StateError('현재 사용자만 돈 약속을 만들 수 있습니다.');
     }
     if (!contract.isBorrower(currentUserUid) &&
         !contract.isLender(currentUserUid)) {
-      throw StateError('계약 작성자는 계약 당사자여야 합니다.');
+      throw StateError('돈 약속을 만든 사람도 약속에 참여해야 합니다.');
     }
 
     final contractReference = _contracts.doc();
@@ -125,15 +125,15 @@ class ContractService {
       final currentContract = ContractModel.fromDocument(document);
 
       if (currentContract.creatorUid != currentUserUid) {
-        throw StateError('계약 작성자만 수정할 수 있습니다.');
+        throw StateError('돈 약속을 만든 사람만 수정할 수 있습니다.');
       }
       if (currentContract.status != ContractStatus.editing) {
-        throw StateError('편집 중인 계약만 수정할 수 있습니다.');
+        throw StateError('작성 중인 돈 약속만 수정할 수 있습니다.');
       }
       if (updatedContract.creatorUid != currentContract.creatorUid ||
           updatedContract.lenderUid != currentContract.lenderUid ||
           updatedContract.borrowerUid != currentContract.borrowerUid) {
-        throw StateError('계약 당사자 정보는 변경할 수 없습니다.');
+        throw StateError('돈 약속에 참여한 사람은 변경할 수 없습니다.');
       }
 
       final editingContract = updatedContract.copyWith(
@@ -155,13 +155,17 @@ class ContractService {
       final contract = ContractModel.fromDocument(document);
 
       if (contract.creatorUid != currentUserUid) {
-        throw StateError('계약 작성자만 계약을 보낼 수 있습니다.');
+        throw StateError('돈 약속을 만든 사람만 보낼 수 있습니다.');
       }
       if (contract.status != ContractStatus.editing) {
-        throw StateError('편집 중인 계약만 보낼 수 있습니다.');
+        throw StateError('작성 중인 돈 약속만 보낼 수 있습니다.');
+      }
+      if (!contract.isBorrower(currentUserUid)) {
+        throw StateError('돈을 빌리는 사람만 약속을 보낼 수 있습니다.');
       }
 
       transaction.update(contractReference, {
+        'borrower_agreed': true,
         'status': ContractStatus.waitingAgreement.firestoreValue,
       });
     });
@@ -180,7 +184,7 @@ class ContractService {
       final user = UserModel.fromDocument(userDocument);
 
       if (contract.status != ContractStatus.waitingAgreement) {
-        throw StateError('동의 대기 중인 계약에만 참여할 수 있습니다.');
+        throw StateError('확인을 기다리는 돈 약속에만 참여할 수 있습니다.');
       }
       if (contract.isBorrower(currentUserUid) ||
           contract.isLender(currentUserUid)) {
@@ -203,7 +207,7 @@ class ContractService {
           'borrower_name': user.name,
         });
       } else {
-        throw StateError('이 계약에 참여할 수 없습니다.');
+        throw StateError('이 돈 약속에는 참여할 수 없습니다.');
       }
 
       transaction.update(userReference, {
@@ -222,13 +226,13 @@ class ContractService {
       final contract = ContractModel.fromDocument(contractDocument);
 
       if (contract.status != ContractStatus.waitingAgreement) {
-        throw StateError('동의 대기 중인 계약만 동의할 수 있습니다.');
+        throw StateError('확인을 기다리는 돈 약속만 확인할 수 있습니다.');
       }
 
       final isLender = contract.isLender(currentUserUid);
       final isBorrower = contract.isBorrower(currentUserUid);
       if (!isLender && !isBorrower) {
-        throw StateError('계약 당사자만 동의할 수 있습니다.');
+        throw StateError('돈 약속에 참여한 사람만 확인할 수 있습니다.');
       }
 
       final lenderAgreed = isLender ? true : contract.lenderAgreed;
@@ -241,7 +245,7 @@ class ContractService {
         final lenderUid = contract.lenderUid;
         final borrowerUid = contract.borrowerUid;
         if (lenderUid == null || borrowerUid == null) {
-          throw StateError('계약 당사자 연결이 완료되지 않았습니다.');
+          throw StateError('돈 약속에 참여할 사람의 연결이 끝나지 않았습니다.');
         }
         lenderDocument = await transaction.get(_users.doc(lenderUid));
         borrowerDocument = await transaction.get(_users.doc(borrowerUid));
@@ -281,10 +285,10 @@ class ContractService {
       final contract = ContractModel.fromDocument(contractDocument);
 
       if (contract.creatorUid != currentUserUid) {
-        throw StateError('계약 작성자만 삭제할 수 있습니다.');
+        throw StateError('돈 약속을 만든 사람만 삭제할 수 있습니다.');
       }
       if (contract.status == ContractStatus.active) {
-        throw StateError('진행 중인 계약은 일반 삭제할 수 없습니다.');
+        throw StateError('진행 중인 돈 약속은 삭제할 수 없습니다.');
       }
 
       final participantUids = {
@@ -313,7 +317,7 @@ class ContractService {
     final currentUserUid = _requireCurrentUserUid();
     final contract = await getContract(contractId);
     if (contract.status != ContractStatus.active) {
-      throw StateError('진행 중인 계약만 가릴 수 있습니다.');
+      throw StateError('진행 중인 돈 약속만 가릴 수 있습니다.');
     }
 
     await _users.doc(currentUserUid).update({
@@ -331,16 +335,16 @@ class ContractService {
       final contract = ContractModel.fromDocument(contractDocument);
 
       if (contract.status != ContractStatus.active) {
-        throw StateError('진행 중인 계약만 상환할 수 있습니다.');
+        throw StateError('진행 중인 돈 약속만 갚을 수 있습니다.');
       }
       if (!contract.isBorrower(currentUserUid)) {
-        throw StateError('빌린 사용자만 상환을 완료할 수 있습니다.');
+        throw StateError('돈을 빌린 사람만 갚기를 완료할 수 있습니다.');
       }
 
       final lenderUid = contract.lenderUid;
       final borrowerUid = contract.borrowerUid;
       if (lenderUid == null || borrowerUid == null) {
-        throw StateError('계약 당사자 정보가 올바르지 않습니다.');
+        throw StateError('돈 약속에 참여한 사람의 정보가 올바르지 않습니다.');
       }
 
       final lenderDocument = await transaction.get(_users.doc(lenderUid));
@@ -381,7 +385,7 @@ class ContractService {
   void _ensureParticipant(ContractModel contract, String currentUserUid) {
     if (!contract.isBorrower(currentUserUid) &&
         !contract.isLender(currentUserUid)) {
-      throw StateError('계약을 확인할 권한이 없습니다.');
+      throw StateError('이 돈 약속을 확인할 수 없습니다.');
     }
   }
 }
