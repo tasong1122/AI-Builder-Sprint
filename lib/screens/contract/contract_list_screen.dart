@@ -224,7 +224,7 @@ class ContractListScreenState extends State<ContractListScreen> {
     return Stack(
       children: [
         ColoredBox(
-          color: AppColors.background,
+          color: Theme.of(context).colorScheme.surface,
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(

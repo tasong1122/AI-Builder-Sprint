@@ -59,14 +59,16 @@ class CommonTextField extends StatelessWidget {
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       onTap: onTap,
-      style: AppTextStyles.body,
+      style: AppTextStyles.body.copyWith(
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
         errorText: errorText,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: AppColors.background,
+        fillColor: Theme.of(context).colorScheme.surface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppDimensions.cardPadding,
           vertical: 18,

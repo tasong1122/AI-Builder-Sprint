@@ -303,9 +303,9 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(isEditingExisting ? '돈 약속 수정' : '새 돈 약속 만들기'),
       ),
       body: _buildBody(),

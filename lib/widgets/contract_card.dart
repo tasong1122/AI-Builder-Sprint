@@ -26,7 +26,7 @@ class ContractCard extends StatelessWidget {
     final roleText = isBorrower ? '빌림' : '빌려줌';
 
     return Material(
-      color: AppColors.background,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(AppDimensions.defaultBorderRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

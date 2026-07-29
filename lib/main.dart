@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import 'constants/app_colors.dart';
+import 'constants/app_theme.dart';
 import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 
@@ -17,15 +17,16 @@ class YaksokApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'lOV',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.highlight),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.themeMode,
+      builder: (context, themeMode, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'lOV',
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: themeMode,
+        home: const LoginScreen(),
       ),
-      home: const LoginScreen(),
     );
   }
 }

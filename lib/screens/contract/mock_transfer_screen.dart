@@ -153,9 +153,9 @@ class _MockTransferScreenState extends State<MockTransferScreen> {
     return PopScope(
       canPop: !isSubmitting,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: Text(isLending ? '빌려주기' : '갚기'),
           automaticallyImplyLeading: !isSubmitting,
         ),

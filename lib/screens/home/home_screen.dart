@@ -204,7 +204,7 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: AppColors.background,
+      color: Theme.of(context).colorScheme.surface,
       child: SafeArea(
         child: RefreshIndicator(
           onRefresh: loadDashboard,

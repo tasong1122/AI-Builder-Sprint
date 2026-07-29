@@ -106,6 +106,28 @@ class AuthService {
   // 현재 Firebase 인증 세션에서 로그아웃한다.
   Future<void> signOut() => _firebaseAuth.signOut();
 
+  // 새 이메일 주소로 변경 확인 메일을 발송한다.
+  Future<void> sendEmailChangeVerification(String newEmail) async {
+    final normalizedEmail = newEmail.trim();
+    if (normalizedEmail.isEmpty || !normalizedEmail.contains('@')) {
+      throw const FormatException('올바른 새 이메일 주소를 입력해 주세요.');
+    }
+    final user = _requireCurrentUser();
+    if (user.email == normalizedEmail) {
+      throw const FormatException('현재 이메일과 다른 주소를 입력해 주세요.');
+    }
+    await user.verifyBeforeUpdateEmail(normalizedEmail);
+  }
+
+  // 현재 로그인 이메일로 비밀번호 재설정 링크를 발송한다.
+  Future<void> sendPasswordResetEmail() async {
+    final email = _requireCurrentUser().email;
+    if (email == null || email.isEmpty) {
+      throw StateError('계정 이메일을 확인할 수 없습니다.');
+    }
+    await _firebaseAuth.sendPasswordResetEmail(email: email);
+  }
+
   // 인증이 필요한 작업에서 현재 사용자를 확인한다.
   User _requireCurrentUser() {
     final user = _firebaseAuth.currentUser;

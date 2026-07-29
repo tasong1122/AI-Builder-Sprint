@@ -65,9 +65,9 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text('돈 약속 자세히'),
       ),
       body: initialErrorMessage != null

@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common_button.dart';
@@ -92,9 +91,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text('회원가입'),
       ),
       body: SafeArea(
