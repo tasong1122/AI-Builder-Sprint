@@ -79,7 +79,13 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
         contract: contract,
         currentUserUid: uid,
       );
-      await service.openSmsComposer(body: message);
+      try {
+        await service.openSmsComposer(body: message);
+      } catch (_) {
+        if (mounted) {
+          await showReminderMessageDialog(message);
+        }
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -97,6 +103,23 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
         });
       }
     }
+  }
+
+  // Shows the generated reminder when the current platform cannot open SMS.
+  Future<void> showReminderMessageDialog(String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('독촉문자 문안'),
+        content: SelectableText(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

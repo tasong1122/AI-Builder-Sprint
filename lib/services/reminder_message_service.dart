@@ -36,7 +36,7 @@ class ReminderMessageService {
         prompt: _buildPrompt(contract),
       );
       return _cleanSmsBody(content);
-    } on UnsupportedError {
+    } catch (_) {
       return _buildFallbackMessage(contract);
     }
   }
