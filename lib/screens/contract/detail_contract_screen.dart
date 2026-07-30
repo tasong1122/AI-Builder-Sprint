@@ -6,6 +6,7 @@ import '../../constants/app_text_styles.dart';
 import '../../models/contract_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/contract_service.dart';
+import '../../services/reminder_message_service.dart';
 import '../../widgets/common_button.dart';
 import '../../widgets/contract_card.dart';
 import '../../widgets/contract_status_badge.dart';
@@ -24,6 +25,7 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
   String? currentUserUid;
   Stream<ContractModel>? contractStream;
   String? initialErrorMessage;
+  bool isSendingReminder = false;
 
   @override
   void initState() {
@@ -59,6 +61,41 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
     );
     if (changed == true && mounted) {
       Navigator.of(context).pop(true);
+    }
+  }
+
+  // Upstage API로 독촉 문자를 생성한 뒤 기본 문자 앱을 연다.
+  Future<void> sendReminderMessage(ContractModel contract) async {
+    final uid = currentUserUid;
+    if (uid == null || isSendingReminder) {
+      return;
+    }
+    setState(() {
+      isSendingReminder = true;
+    });
+    try {
+      final service = ReminderMessageService();
+      final message = await service.generateReminderMessage(
+        contract: contract,
+        currentUserUid: uid,
+      );
+      await service.openSmsComposer(body: message);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('독촉 문자를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.'),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSendingReminder = false;
+        });
+      }
     }
   }
 
@@ -128,7 +165,12 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
       transferType = MockTransferType.repay;
     }
 
-    if (label == null || transferType == null) {
+    final canSendReminder =
+        uid != null &&
+        contract.status == ContractStatus.active &&
+        contract.isLender(uid);
+
+    if ((label == null || transferType == null) && !canSendReminder) {
       return const SizedBox.shrink();
     }
     return SafeArea(
@@ -140,9 +182,24 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
           AppDimensions.screenHorizontalPadding,
           AppDimensions.screenVerticalPadding,
         ),
-        child: CommonButton(
-          label: label,
-          onPressed: () => openMockTransfer(contract, transferType!),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canSendReminder) ...[
+              CommonButton(
+                label: '독촉문자 보내기',
+                isLoading: isSendingReminder,
+                onPressed: () => sendReminderMessage(contract),
+              ),
+              if (label != null && transferType != null)
+                const SizedBox(height: AppDimensions.itemSpacing),
+            ],
+            if (label != null && transferType != null)
+              CommonButton(
+                label: label,
+                onPressed: () => openMockTransfer(contract, transferType!),
+              ),
+          ],
         ),
       ),
     );
