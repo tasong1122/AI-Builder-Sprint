@@ -79,12 +79,8 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
         contract: contract,
         currentUserUid: uid,
       );
-      try {
-        await service.openSmsComposer(body: message);
-      } catch (_) {
-        if (mounted) {
-          await showReminderMessageDialog(message);
-        }
+      if (mounted) {
+        await showReminderMessageDialog(message, service);
       }
     } catch (_) {
       if (mounted) {
@@ -106,13 +102,53 @@ class _DetailContractScreenState extends State<DetailContractScreen> {
   }
 
   // Shows the generated reminder when the current platform cannot open SMS.
-  Future<void> showReminderMessageDialog(String message) {
+  Future<void> showReminderMessageDialog(
+    String message,
+    ReminderMessageService service,
+  ) {
     return showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('독촉문자 문안'),
         content: SelectableText(message),
         actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: message));
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop();
+              }
+              if (mounted) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(content: Text('독촉문자 문안을 복사했습니다.')),
+                  );
+              }
+            },
+            child: const Text('복사'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await service.openSmsComposer(body: message);
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('문자 앱을 열 수 없어 문안만 표시했습니다.'),
+                      ),
+                    );
+                }
+              }
+            },
+            child: const Text('문자 앱 열기'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('닫기'),
