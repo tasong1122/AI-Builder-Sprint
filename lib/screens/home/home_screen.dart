@@ -5,13 +5,14 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/contract_model.dart';
+import '../../models/reminder_notification_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/contract_service.dart';
+import '../../services/notification_service.dart';
 import '../../widgets/common_button.dart';
 import '../../widgets/common_text_field.dart';
 import '../../widgets/contract_card.dart';
-import '../auth/login_screen.dart';
 import '../contract/detail_contract_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,11 +26,11 @@ class HomeScreen extends StatefulWidget {
 
 class HomeScreenState extends State<HomeScreen> {
   final contractLinkController = TextEditingController();
+  final notificationService = NotificationService();
 
   UserModel? currentUserProfile;
   List<ContractModel> activeContracts = const [];
   bool isDashboardLoading = true;
-  bool isSigningOut = false;
   bool isJoiningContract = false;
   bool showAllContracts = false;
   String? dashboardErrorMessage;
@@ -83,38 +84,9 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Firebase 인증 세션을 종료하고 로그인 화면으로 이동한다.
-  Future<void> signOut() async {
-    if (isSigningOut) {
-      return;
-    }
-    setState(() {
-      isSigningOut = true;
-    });
-
-    try {
-      await AuthService().signOut();
-      if (!mounted) {
-        return;
-      }
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-        (_) => false,
-      );
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      _showMessage('로그아웃하지 못했습니다. 잠시 후 다시 시도해 주세요.');
-      setState(() {
-        isSigningOut = false;
-      });
-    }
-  }
-
   // 입력한 공유 링크에서 계약 ID를 추출해 현재 사용자를 계약에 연결한다.
   Future<void> joinContractFromLink() async {
-    if (isJoiningContract || isSigningOut) {
+    if (isJoiningContract) {
       return;
     }
     final contractId = _extractContractId(contractLinkController.text);
@@ -153,6 +125,34 @@ class HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  // 알림 목록 시트를 열고 미읽음 알림을 읽음으로 처리한다.
+  Future<void> openNotificationSheet() async {
+    try {
+      await notificationService.markAllAsRead();
+    } catch (_) {
+      if (mounted) {
+        _showMessage('알림 상태를 갱신하지 못했습니다.');
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.defaultBorderRadius),
+        ),
+      ),
+      builder: (_) =>
+          _NotificationSheet(notificationService: notificationService),
+    );
   }
 
   // 진행 중 계약의 읽기 전용 상세 화면을 열고 돌아오면 홈을 갱신한다.
@@ -230,15 +230,24 @@ class HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         const Expanded(child: Text('홈', style: AppTextStyles.screenTitle)),
-        IconButton(
-          tooltip: '로그아웃',
-          onPressed: isSigningOut || isJoiningContract ? null : signOut,
-          icon: isSigningOut
-              ? const SizedBox.square(
-                  dimension: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.logout),
+        StreamBuilder<bool>(
+          stream: notificationService.watchHasUnreadNotifications(),
+          initialData: false,
+          builder: (context, snapshot) {
+            final hasUnread = snapshot.data ?? false;
+            return IconButton(
+              tooltip: '알림',
+              onPressed: openNotificationSheet,
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_outlined),
+                  if (hasUnread)
+                    const Positioned(right: -1, top: -1, child: _UnreadBadge()),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
@@ -344,7 +353,7 @@ class HomeScreenState extends State<HomeScreen> {
           errorText: contractLinkErrorText,
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.done,
-          enabled: !isJoiningContract && !isSigningOut,
+          enabled: !isJoiningContract,
           onChanged: (_) {
             if (contractLinkErrorText != null) {
               setState(() {
@@ -367,9 +376,7 @@ class HomeScreenState extends State<HomeScreen> {
         CommonButton(
           label: '돈 약속 링크 열기',
           isLoading: isJoiningContract,
-          onPressed: isJoiningContract || isSigningOut
-              ? null
-              : joinContractFromLink,
+          onPressed: isJoiningContract ? null : joinContractFromLink,
         ),
       ],
     );
@@ -385,6 +392,125 @@ class HomeScreenState extends State<HomeScreen> {
       contractLinkController.text = clipboardData!.text!;
       contractLinkErrorText = null;
     });
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: const BoxDecoration(
+        color: AppColors.error,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+class _NotificationSheet extends StatelessWidget {
+  const _NotificationSheet({required this.notificationService});
+
+  final NotificationService notificationService;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppDimensions.screenHorizontalPadding,
+        AppDimensions.sectionSpacing,
+        AppDimensions.screenHorizontalPadding,
+        MediaQuery.of(context).viewInsets.bottom +
+            AppDimensions.screenVerticalPadding,
+      ),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.65,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('알림', style: AppTextStyles.sectionTitle),
+            const SizedBox(height: AppDimensions.itemSpacing),
+            Expanded(
+              child: StreamBuilder<List<ReminderNotificationModel>>(
+                stream: notificationService.watchCurrentUserNotifications(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text(
+                        '알림을 불러오지 못했습니다.\n잠시 후 다시 시도해 주세요.',
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+
+                  final notifications = snapshot.data ?? const [];
+                  if (notifications.isEmpty) {
+                    return const Center(
+                      child: Text('도착한 알림이 없습니다.', style: AppTextStyles.body),
+                    );
+                  }
+
+                  return ListView.separated(
+                    itemCount: notifications.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppDimensions.itemSpacing),
+                    itemBuilder: (context, index) {
+                      final notification = notifications[index];
+                      return Container(
+                        padding: const EdgeInsets.all(
+                          AppDimensions.cardPadding,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.neutralSection,
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.defaultBorderRadius,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${notification.senderName}님의 독촉 메세지',
+                              style: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              notification.message,
+                              style: AppTextStyles.body,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _formatNotificationTime(notification.createdAt),
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 알림 시간을 한국어 형식으로 간단히 변환한다.
+  String _formatNotificationTime(DateTime time) {
+    final local = time.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${local.year}.${local.month.toString().padLeft(2, '0')}.${local.day.toString().padLeft(2, '0')} $hour:$minute';
   }
 }
 
