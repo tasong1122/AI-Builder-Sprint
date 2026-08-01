@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_dimensions.dart';
 import '../../services/auth_service.dart';
+import '../../services/contract_link_service.dart';
 import '../../widgets/common_button.dart';
 import '../../widgets/common_text_field.dart';
 import '../main/main_screen.dart';
@@ -53,6 +54,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: password,
         passwordConfirmation: confirmation,
       );
+      if (!mounted) {
+        return;
+      }
+      if (await ContractLinkService.openPendingContractIfPossible()) {
+        return;
+      }
       if (!mounted) {
         return;
       }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../services/auth_service.dart';
+import '../../services/contract_link_service.dart';
 import '../../widgets/common_button.dart';
 import '../../widgets/common_text_field.dart';
 import '../main/main_screen.dart';
@@ -46,6 +47,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isSubmitting = true);
     try {
       await AuthService().signIn(email: email, password: password);
+      if (!mounted) {
+        return;
+      }
+      if (await ContractLinkService.openPendingContractIfPossible()) {
+        return;
+      }
       if (!mounted) {
         return;
       }
