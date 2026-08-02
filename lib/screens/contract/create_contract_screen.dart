@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kakao_flutter_sdk_share/kakao_flutter_sdk_share.dart';
@@ -245,7 +247,7 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
       if (!mounted) {
         return;
       }
-      final contractLink = 'https://yaksok.app/contracts/$contractId';
+      final contractLink = '${KakaoConfig.hostingOrigin}/contracts/$contractId';
       await _showShareLinkDialog(contractLink);
       if (!mounted) {
         return;
@@ -346,11 +348,28 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
       if (dialogContext.mounted) {
         Navigator.of(dialogContext).pop();
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      developer.log(
+        'Kakao Talk share failed.',
+        name: 'KakaoShare',
+        error: error,
+        stackTrace: stackTrace,
+      );
       if (mounted) {
-        _showMessage('카카오톡 공유를 열지 못했습니다. 다른 앱 공유를 이용해 주세요.');
+        _showMessage(_kakaoShareErrorMessage(error));
       }
     }
+  }
+
+  // 카카오 SDK 오류 원인을 민감한 내부 정보 없이 사용자에게 안내한다.
+  String _kakaoShareErrorMessage(Object error) {
+    if (error is KakaoApiException) {
+      return '카카오톡 공유 오류: ${error.msg} (${error.code.name})';
+    }
+    if (error is KakaoException) {
+      return '카카오톡 공유 오류: ${error.message}';
+    }
+    return '카카오톡 공유를 열지 못했습니다. 다른 앱 공유를 이용해 주세요.';
   }
 
   // Android와 iOS의 시스템 공유창을 열어 돈 약속 링크를 전달한다.
