@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:kakao_flutter_sdk_share/kakao_flutter_sdk_share.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/kakao_config.dart';
 import '../../models/contract_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
@@ -262,7 +265,7 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
     }
   }
 
-  // 공유 패키지 없이 계약 링크를 복사할 수 있는 대화상자를 표시한다.
+  // 돈 약속 링크를 시스템 공유창으로 보내거나 복사할 수 있게 표시한다.
   Future<void> _showShareLinkDialog(String contractLink) {
     return showDialog<void>(
       context: context,
@@ -281,10 +284,111 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
               },
               child: const Text('링크 복사'),
             ),
+            TextButton(
+              onPressed: () =>
+                  _shareContractLinkToKakao(dialogContext, contractLink),
+              child: const Text('카카오톡'),
+            ),
+            Builder(
+              builder: (shareButtonContext) {
+                return TextButton(
+                  onPressed: () => _shareContractLink(
+                    shareButtonContext,
+                    dialogContext,
+                    contractLink,
+                  ),
+                  child: const Text('다른 앱'),
+                );
+              },
+            ),
           ],
         );
       },
     );
+  }
+
+  // 카카오톡 피드 템플릿으로 이미지가 포함된 카드형 메시지를 공유한다.
+  Future<void> _shareContractLinkToKakao(
+    BuildContext dialogContext,
+    String contractLink,
+  ) async {
+    try {
+      final contractId = Uri.parse(contractLink).pathSegments.last;
+      final link = Link(
+        webUrl: Uri.parse(contractLink),
+        mobileWebUrl: Uri.parse(contractLink),
+        androidExecutionParams: {'contract_id': contractId},
+        iosExecutionParams: {'contract_id': contractId},
+      );
+      final template = FeedTemplate(
+        content: Content(
+          title: '새로운 돈 약속이 도착했어요',
+          description: '친구가 보낸 돈 약속을 lOV에서 확인해 보세요.',
+          imageUrl: Uri.parse(KakaoConfig.shareImageUrl),
+          imageWidth: 1774,
+          imageHeight: 887,
+          link: link,
+        ),
+        buttons: [Button(title: '돈 약속 확인하기', link: link)],
+      );
+
+      final canShareWithKakao = await ShareClient.instance
+          .isKakaoTalkSharingAvailable();
+      if (canShareWithKakao) {
+        await ShareClient.instance.shareDefault(template: template);
+      } else {
+        final shareUrl = await WebSharerClient.instance.makeDefaultUrl(
+          template: template,
+        );
+        await launchBrowser(shareUrl);
+      }
+
+      if (dialogContext.mounted) {
+        Navigator.of(dialogContext).pop();
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('카카오톡 공유를 열지 못했습니다. 다른 앱 공유를 이용해 주세요.');
+      }
+    }
+  }
+
+  // Android와 iOS의 시스템 공유창을 열어 돈 약속 링크를 전달한다.
+  Future<void> _shareContractLink(
+    BuildContext shareButtonContext,
+    BuildContext dialogContext,
+    String contractLink,
+  ) async {
+    try {
+      final renderBox = shareButtonContext.findRenderObject() as RenderBox?;
+      final shareOrigin = renderBox == null
+          ? null
+          : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          title: 'lOV 돈 약속',
+          subject: 'lOV에서 돈 약속이 도착했어요',
+          text:
+              'lOV에서 보낸 돈 약속이에요.\n'
+              '$contractLink\n'
+              '링크를 열거나 lOV 홈에서 붙여넣어 확인해 주세요.',
+          sharePositionOrigin: shareOrigin,
+        ),
+      );
+
+      if (!dialogContext.mounted) {
+        return;
+      }
+      if (result.status == ShareResultStatus.unavailable) {
+        _showMessage('이 기기에서는 공유창을 열 수 없습니다. 링크 복사를 이용해 주세요.');
+        return;
+      }
+      Navigator.of(dialogContext).pop();
+    } catch (_) {
+      if (mounted) {
+        _showMessage('공유창을 열지 못했습니다. 링크 복사를 이용해 주세요.');
+      }
+    }
   }
 
   // 화면 하단에 계약 처리 결과를 표시한다.

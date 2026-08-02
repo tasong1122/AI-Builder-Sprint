@@ -12,5 +12,24 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    guard let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "ContractLinkPlugin"
+    ) else {
+      return
+    }
+    let channel = FlutterMethodChannel(
+      name: "lov/contract_link",
+      binaryMessenger: registrar.messenger()
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "getInitialLink" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let key = "lov_initial_contract_link"
+      let link = UserDefaults.standard.string(forKey: key)
+      UserDefaults.standard.removeObject(forKey: key)
+      result(link)
+    }
   }
 }
