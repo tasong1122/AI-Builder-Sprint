@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/common_button.dart';
-import '../../widgets/common_text_field.dart';
 import '../auth/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -23,11 +21,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final newEmailController = TextEditingController();
-  bool isSendingEmailChange = false;
   bool isSendingPasswordReset = false;
   bool isSigningOut = false;
-  String? emailErrorText;
   String currentEmail = '확인할 수 없음';
 
   @override
@@ -36,53 +31,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     loadCurrentEmail();
   }
 
-  @override
-  void dispose() {
-    newEmailController.dispose();
-    super.dispose();
-  }
-
   // 초기화된 Firebase 계정에서 현재 로그인 이메일을 안전하게 불러온다.
   void loadCurrentEmail() {
     try {
       currentEmail = FirebaseAuth.instance.currentUser?.email ?? '확인할 수 없음';
     } on FirebaseException {
       currentEmail = '확인할 수 없음';
-    }
-  }
-
-  // 새 이메일 주소의 소유 여부를 확인할 변경 링크를 발송한다.
-  Future<void> sendEmailChangeVerification() async {
-    if (isSendingEmailChange) {
-      return;
-    }
-    setState(() {
-      isSendingEmailChange = true;
-      emailErrorText = null;
-    });
-    try {
-      await AuthService().sendEmailChangeVerification(newEmailController.text);
-      if (!mounted) {
-        return;
-      }
-      newEmailController.clear();
-      _showMessage('새 이메일로 확인 링크를 보냈습니다.');
-    } on FormatException catch (error) {
-      if (mounted) {
-        setState(() => emailErrorText = error.message);
-      }
-    } on FirebaseAuthException catch (error) {
-      if (mounted) {
-        _showMessage(_authErrorMessage(error.code));
-      }
-    } catch (_) {
-      if (mounted) {
-        _showMessage('이메일 변경 메일을 보내지 못했습니다.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isSendingEmailChange = false);
-      }
     }
   }
 
@@ -138,10 +92,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Firebase 오류 코드를 사용자용 안내 문구로 변환한다.
   String _authErrorMessage(String code) {
     switch (code) {
-      case 'invalid-email':
-        return '올바른 이메일 주소를 입력해 주세요.';
-      case 'email-already-in-use':
-        return '이미 사용 중인 이메일입니다.';
       case 'requires-recent-login':
         return '보안을 위해 로그아웃 후 다시 로그인해 주세요.';
       case 'network-request-failed':
@@ -169,23 +119,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Text('계정', style: AppTextStyles.sectionTitle),
           const SizedBox(height: AppDimensions.itemSpacing),
           Text('현재 이메일(ID): $currentEmail', style: AppTextStyles.body),
-          const SizedBox(height: AppDimensions.itemSpacing),
-          CommonTextField(
-            controller: newEmailController,
-            label: '새 이메일(ID)',
-            keyboardType: TextInputType.emailAddress,
-            errorText: emailErrorText,
-            enabled: !isSendingEmailChange,
-            onChanged: (_) => setState(() => emailErrorText = null),
-          ),
-          const SizedBox(height: AppDimensions.itemSpacing),
-          CommonButton(
-            label: '이메일 변경 링크 보내기',
-            isLoading: isSendingEmailChange,
-            onPressed: isSendingEmailChange
-                ? null
-                : sendEmailChangeVerification,
-          ),
           const SizedBox(height: AppDimensions.itemSpacing),
           OutlinedButton.icon(
             onPressed: isSendingPasswordReset ? null : sendPasswordResetEmail,
